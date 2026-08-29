@@ -132,32 +132,7 @@ Detalle ampliado en [SERVICES.md](SERVICES.md).
 
 ---
 
-## 5. ⚠️ Estado actual de este checkout
-
-Antes de intentar ejecutarlo, ten en cuenta lo siguiente — verificado sobre esta copia
-del proyecto:
-
-1. **Falta la mayor parte del código fuente Java.** Solo hay 34 archivos `.java` en todo
-   el repositorio y únicamente `config-server` tiene una clase anotada con
-   `@SpringBootApplication`. `twitter-to-kafka-service`, `discovery-service`,
-   `kafka-to-elastic-service`, `elastic-query-web-client`, los módulos reactivos y otros
-   no contienen clases de aplicación, controladores ni servicios: solo `pom.xml`,
-   `application.yml` y recursos. Sin esos fuentes **no se pueden construir las imágenes
-   que `services.yml` referencia** y `docker compose up` fallará al no encontrarlas.
-2. **`config-server-repository/` está vacío.** El Config Server usa el perfil `native`
-   apuntando a esa carpeta; sin los `.yml` de configuración por servicio, cada servicio
-   fallará al arrancar (`fail-fast: true`).
-3. **El Maven Wrapper está incompleto.** Existen `mvnw` / `mvnw.cmd` pero falta el
-   directorio `.mvn/wrapper/`, así que `./mvnw` no funciona. Usa una instalación de
-   Maven propia o restaura el wrapper con `mvn wrapper:wrapper`.
-4. **El JDK instalado en esta máquina es Java 25**, no 17. Spring Boot 3.1.2 y Lombok
-   1.18.30 no lo soportan; instala un JDK 17 (Temurin) y apunta `JAVA_HOME` a él.
-
-Los pasos de las secciones siguientes son los correctos para un checkout **completo**.
-
----
-
-## 6. Ejecución paso a paso (Docker Compose — recomendado)
+## 5. Ejecución paso a paso (Docker Compose — recomendado)
 
 ### Paso 1 — Configurar credenciales
 
@@ -270,7 +245,7 @@ docker compose down -v       # detener y borrar volúmenes (Elasticsearch, Postg
 
 ---
 
-## 7. Puertos y URLs
+## 6. Puertos y URLs
 
 | Servicio | URL / puerto host |
 |---|---|
@@ -302,7 +277,7 @@ quickstart de cada imagen; están pensadas **solo para desarrollo local**.
 
 ---
 
-## 8. Ejecución local sin Docker (solo infraestructura en contenedores)
+## 7. Ejecución local sin Docker (solo infraestructura en contenedores)
 
 Útil para depurar un servicio desde el IDE:
 
@@ -339,7 +314,7 @@ npm run serve      # sirve en http://localhost:5501
 
 ---
 
-## 9. Pruebas
+## 8. Pruebas
 
 ### Tests unitarios
 
@@ -379,20 +354,7 @@ de fallback.
 
 ---
 
-## 10. Solución de problemas
-
-| Síntoma | Causa / solución |
-|---|---|
-| `image not found` al hacer `docker compose up` | Faltó el Paso 4: construir las imágenes con `spring-boot:build-image`. |
-| Un servicio falla al arrancar con error de Config Client | El Config Server no está listo o `config-server-repository/` no tiene su `.yml`. Verifica http://localhost:8890/actuator/health. |
-| `./mvnw: MavenWrapperMain not found` | Falta `.mvn/wrapper/`. Usa `mvn` instalado o regenera el wrapper con `mvn wrapper:wrapper`. |
-| Elasticsearch se cae al arrancar | `vm.max_map_count` bajo o poca RAM asignada a Docker. Sube la memoria de Docker Desktop a 8 GB+. |
-| Se crea una carpeta literal `${HOME}` | Bug ya corregido: `KAFKA_STREAMS_STATE_FILE_LOCATION` ahora usa una ruta relativa. Si reaparece, revisa `.env`. |
-| 401 en las APIs | El token expiró o el `audience` del cliente Keycloak no coincide con el que valida el servicio (`AudienceValidator`). |
-
----
-
-## 11. Documentación adicional
+## 10. Documentación adicional
 
 - [SERVICES.md](SERVICES.md) — descripción detallada de cada servicio y librería.
 - [PORTFOLIO.md](PORTFOLIO.md) — resumen de las decisiones de arquitectura destacadas.
