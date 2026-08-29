@@ -1,0 +1,43 @@
+logging:
+  level:
+    root: info
+
+spring:
+  application:
+    name: reactive-elastic-query-web-client
+  profiles:
+    active: reactive_elastic_query_web
+  config:
+    import: "configserver:"
+  cloud:
+    config:
+      name: reactive-elastic-query-web-client,config-client
+      username: spring_cloud_user
+      password: "1234"
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    lease-expiration-duration-in-seconds: 5
+    lease-renewal-interval-in-seconds: 2
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,tracing
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411
+
+zipkin:
+  sender:
+    type: kafka
+
+log:
+  app-name: reactive-elastic-query-web-client

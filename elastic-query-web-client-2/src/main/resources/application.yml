@@ -1,0 +1,35 @@
+logging:
+  level:
+    root: DEBUG
+
+spring:
+  application:
+    name: elastic-query-web-client-2
+  profiles:
+    active: elastic_query_web_2
+  config:
+    import: "configserver:"
+  cloud:
+    config:
+      name: elastic-query-web-client-2,config-client
+      username: spring_cloud_user
+      password: "1234"
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    lease-expiration-duration-in-seconds: 5
+    lease-renewal-interval-in-seconds: 2
+
+log:
+  app-name: elastic-query-web-client-2
+
+#elastic-query-web-client:
+#  webclient:
+#    instances:
+#      -
+#        id: elastic-query-service-1
+#        host: localhost
+#        port: 8183
