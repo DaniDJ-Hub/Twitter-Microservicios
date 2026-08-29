@@ -1,0 +1,157 @@
+{
+  "info": {
+    "name": "twitter-analytics-microservices",
+    "description": "Everything routes through gateway-service (single entry point). Auth is per-downstream-service (each is its own OAuth2 Resource Server against Keycloak), not at the gateway - see REVIEW_NOTES.md. Run 'Get access token' first (fill in your realm's client_id/client_secret) - it auto-captures {{access_token}}, used as a Bearer token by every other request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "gateway_url", "value": "http://localhost:9092" },
+    { "key": "keycloak_url", "value": "http://localhost:9091" },
+    { "key": "keycloak_realm", "value": "microservices-realm" },
+    { "key": "keycloak_client_id", "value": "REPLACE_WITH_YOUR_CLIENT_ID" },
+    { "key": "keycloak_client_secret", "value": "REPLACE_WITH_YOUR_CLIENT_SECRET" },
+    { "key": "keycloak_username", "value": "REPLACE_WITH_A_REALM_USER" },
+    { "key": "keycloak_password", "value": "" },
+    { "key": "access_token", "value": "" },
+    { "key": "word", "value": "twitter" },
+    { "key": "documentId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Auth (Keycloak, direct - not through the gateway)",
+      "item": [
+        {
+          "name": "Get access token (password grant)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "password" },
+                { "key": "client_id", "value": "{{keycloak_client_id}}" },
+                { "key": "client_secret", "value": "{{keycloak_client_secret}}" },
+                { "key": "username", "value": "{{keycloak_username}}" },
+                { "key": "password", "value": "{{keycloak_password}}" }
+              ]
+            },
+            "url": {
+              "raw": "{{keycloak_url}}/auth/realms/{{keycloak_realm}}/protocol/openid-connect/token",
+              "host": ["{{keycloak_url}}"], "path": ["auth", "realms", "{{keycloak_realm}}", "protocol", "openid-connect", "token"]
+            },
+            "description": "Matches the pattern jmeter/gateway-query-flow-load-test.jmx uses to authenticate. client_id/client_secret/username/password all come from your own Keycloak realm setup - not discoverable from the codebase, fill in your own."
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "const json = pm.response.json();",
+              "if (json.access_token) pm.collectionVariables.set('access_token', json.access_token);"
+            ] }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "Elastic Query Service (via gateway)",
+      "item": [
+        {
+          "name": "Get all documents",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{gateway_url}}/elastic-query-service/documents", "host": ["{{gateway_url}}"], "path": ["elastic-query-service", "documents"] },
+            "description": "Requires isAuthenticated() + @PostAuthorize hasPermission(returnObject, 'READ')."
+          }
+        },
+        {
+          "name": "Get document by id (v1)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{gateway_url}}/elastic-query-service/documents/{{documentId}}", "host": ["{{gateway_url}}"], "path": ["elastic-query-service", "documents", "{{documentId}}"] }
+          }
+        },
+        {
+          "name": "Get document by id (v2, content negotiation)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Accept", "value": "application/vnd.api.v2+json" }
+            ],
+            "url": { "raw": "{{gateway_url}}/elastic-query-service/documents/{{documentId}}", "host": ["{{gateway_url}}"], "path": ["elastic-query-service", "documents", "{{documentId}}"] },
+            "description": "Same route as v1 - the version is selected by the Accept header (produces=\"application/vnd.api.v2+json\"), not a separate path."
+          }
+        },
+        {
+          "name": "Get documents by text (requires APP_USER_ROLE/APP_SUPER_USER_ROLE)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"text\": \"{{word}}\"\n}" },
+            "url": { "raw": "{{gateway_url}}/elastic-query-service/documents/get-document-by-text", "host": ["{{gateway_url}}"], "path": ["elastic-query-service", "documents", "get-document-by-text"] },
+            "description": "This endpoint also forwards the caller's own access token downstream via @RegisteredOAuth2AuthorizedClient - needs the Keycloak client registered with an OAuth2 client (not just resource-server) role, not just any valid JWT."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics Service (via gateway)",
+      "item": [
+        {
+          "name": "Get word count analytics",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{gateway_url}}/analytics-service/get-word-count-by-word/{{word}}", "host": ["{{gateway_url}}"], "path": ["analytics-service", "get-word-count-by-word", "{{word}}"] },
+            "description": "Requires a JWT with the 'analytics-service' custom audience claim (AudienceValidator) - a token valid for a different service's audience will be rejected here even if otherwise valid."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Kafka Streams Service (via gateway)",
+      "item": [
+        {
+          "name": "Get word count from Kafka Streams state store",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{gateway_url}}/kafka-streams-service/get-word-count-by-word/{{word}}", "host": ["{{gateway_url}}"], "path": ["kafka-streams-service", "get-word-count-by-word", "{{word}}"] },
+            "description": "Reads directly from the local RocksDB state store built by the Kafka Streams topology, not a database - see REVIEW_NOTES.md for the state-directory fix."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gateway Fallbacks (circuit-breaker targets, now actually wired)",
+      "item": [
+        {
+          "name": "Query service fallback",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{gateway_url}}/fallback/query-fallback", "host": ["{{gateway_url}}"], "path": ["fallback", "query-fallback"] },
+            "description": "Fixed this pass: this endpoint always existed but was never wired to elastic-query-service's route as a CircuitBreaker fallbackUri until now - see REVIEW_NOTES.md."
+          }
+        },
+        {
+          "name": "Analytics service fallback",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{gateway_url}}/fallback/analytics-fallback", "host": ["{{gateway_url}}"], "path": ["fallback", "analytics-fallback"] }
+          }
+        },
+        {
+          "name": "Kafka streams service fallback",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{gateway_url}}/fallback/streams-fallback", "host": ["{{gateway_url}}"], "path": ["fallback", "streams-fallback"] }
+          }
+        }
+      ]
+    }
+  ]
+}
