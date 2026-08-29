@@ -354,7 +354,7 @@ de fallback.
 
 ---
 
-## 10. Documentación adicional
+## 9. Documentación adicional
 
 - [SERVICES.md](SERVICES.md) — descripción detallada de cada servicio y librería.
 - [PORTFOLIO.md](PORTFOLIO.md) — resumen de las decisiones de arquitectura destacadas.
