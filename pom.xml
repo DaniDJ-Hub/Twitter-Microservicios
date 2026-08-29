@@ -54,7 +54,7 @@
 		<!-- FIXED: Updated Lombok version for JDK 21 compatibility (minimum 1.18.30) -->
 		<lombok.version>1.18.30</lombok.version>
 
-		<spring-boot.version>3.1.2</spring-boot.version>
+		<spring-boot.version>4.1.1</spring-boot.version>
 		<spring-kafka.version>3.0.9</spring-kafka.version>
 		<spring-retry.version>2.0.2</spring-retry.version>
 		<spring-cloud.version>4.0.3</spring-cloud.version>
