@@ -64,7 +64,7 @@
 
 		<elastic.version>7.17.4</elastic.version>
 
-		<springdoc-openapi-ui.version>1.7.0</springdoc-openapi-ui.version>
+		<springdoc-openapi-ui.version>1.8.0</springdoc-openapi-ui.version>
 
 		<kafka-streams.version>3.5.1</kafka-streams.version>
 		<kafka-clients.version>3.5.1</kafka-clients.version>
