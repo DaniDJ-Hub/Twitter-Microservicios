@@ -1,0 +1,83 @@
+name: Integration Tests (full stack)
+
+# Heavy job: brings up Kafka (3 brokers), Elasticsearch (3 nodes), Postgres, Keycloak,
+# Redis and every microservice, then runs the failsafe integration test suite
+# (**/*IT.java) against the live stack. Manual trigger by default since it's slow
+# and resource-hungry - enable the push trigger once you've confirmed it's stable
+# on your runner size.
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  COMPOSE_PATH_SEPARATOR: ":"
+  COMPOSE_FILE: docker-compose/common.yml:docker-compose/kafka_cluster.yml:docker-compose/elastic_cluster.yml:docker-compose/redis_cluster.yml:docker-compose/postgres.yml:docker-compose/monitoring.yml:docker-compose/zipkin.yml:docker-compose/services.yml
+  KAFKA_VERSION: 7.3.0
+  ELASTIC_VERSION: 7.17.4
+  KEYCLOAK_VERSION: 15.0.1
+  REDIS_VERSION: 6.0.5
+  GRAFANA_VERSION: 5.4.3
+  PROMETHEUS_VERSION: v2.19.2
+  ZIPKIN_VERSION: 2.22.2
+  SERVICE_VERSION: 0.0.1-SNAPSHOT
+  GLOBAL_NETWORK: application
+  GROUP_ID: com.microservices.demo
+  ENCRYPT_KEY: ci-encryption-key
+  TWITTER_BEARER_TOKEN: ci-placeholder-token
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      # Every service that has a Docker image needs to exist locally before
+      # `docker compose up` can find it (services.yml references pre-built tags).
+      - name: Build all Docker images
+        run: |
+          for svc in analytics-service config-server discovery-service elastic-query-service \
+                     elastic-query-web-client kafka-streams-service kafka-to-elastic-service \
+                     twitter-to-kafka-service; do
+            mvn -B -ntp -pl "$svc" -am spring-boot:build-image -DskipTests
+          done
+
+      - name: Start the stack
+        run: docker compose up -d
+
+      - name: Wait for config-server to be healthy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8888/actuator/health | grep -q UP; then
+              echo "config-server is up"; exit 0
+            fi
+            echo "waiting for config-server ($i/30)..."; sleep 10
+          done
+          echo "config-server did not become healthy in time"; docker compose logs config-server; exit 1
+
+      - name: Run integration tests (failsafe verify)
+        run: mvn -B -ntp verify
+
+      - name: Dump compose logs on failure
+        if: failure()
+        run: docker compose logs --tail=200
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
