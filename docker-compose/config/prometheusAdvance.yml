@@ -1,0 +1,30 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    scrape_interval: 1m
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'kafka-streams-service'
+    scrape_interval: 30s
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['localhost:8187']
+    scrape_timeout: 10s
+
+  - job_name: 'analytics-service'
+    scrape_interval: 30s
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['localhost:8188']
+    scrape_timeout: 10s
+
+  # Para servicios en Docker (cuando los tengas)
+  - job_name: 'grafana'
+    scrape_interval: 1m
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['localhost:3000']

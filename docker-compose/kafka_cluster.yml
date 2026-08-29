@@ -1,0 +1,103 @@
+
+services:
+  # Kafka (KRaft mode - no Zookeeper), same single-node pattern as
+  # FOOD-ORDERIN (../../FOOD-ORDERIN/Sistema-de-Microservicios-para-Pedidos-de-Comida/food-ordering-system/infrastructure/docker-compose/docker-compose.yml)
+  # and GYM_MOSTER's own prod compose - one node acting as both broker and
+  # controller. Collapsed from the old 3-broker Zookeeper-backed cluster: on
+  # a single Docker host 3 brokers bought no real fault tolerance, just
+  # controller-quorum complexity, and Zookeeper itself is an extra moving
+  # part Kafka has deprecated in favor of KRaft anyway.
+  # Not published to the host - every consumer here reaches it over
+  # ${GLOBAL_NETWORK:-services} by the "kafka" service name.
+  kafka:
+    image: apache/kafka:4.2.0
+    hostname: kafka
+    container_name: kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://kafka:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 3000
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_COMPRESSION_TYPE: producer
+      # Same fixed cluster ID FOOD-ORDERIN uses (a well-known example ID
+      # from Kafka's own KRaft quickstart, not a secret).
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qg"
+    restart: unless-stopped
+    networks:
+      - ${GLOBAL_NETWORK:-services}
+    healthcheck:
+      # kafka-topics.sh spins up a fresh JVM per invocation - under heavy
+      # host CPU contention (several other Docker Compose stacks running
+      # concurrently) that alone can take well over 10s even though the
+      # broker itself is fine, so this check needs real slack rather than
+      # the tighter timeout FOOD-ORDERIN uses on a less-contended host.
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 20s
+      timeout: 30s
+      retries: 10
+      start_period: 60s
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:${KAFKA_VERSION:-7.3.0}
+    hostname: schema-registry
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      # Host 8083, not 8081 - GYM_MOSTER's compose (dev and prod) binds 8081.
+      # (8082 was tried first but SISTEMA PARTIDOS's backend claimed it while
+      # this stack was still coming up.)
+      - "8083:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+      # Both default to 60000ms. Under heavy host contention, kafka's own
+      # internal broker<->controller heartbeat (hardcoded 2000ms timeout,
+      # not configurable) was observed failing continuously for 10+
+      # minutes straight even though the broker's own healthcheck reported
+      # "healthy" - schema-registry's group-coordinator join (which needs
+      # the SAME internal request-handling capacity) hit its 60s default
+      # and crashed with "Timed out waiting for join group to complete"
+      # before kafka ever got responsive enough. No restart policy existed
+      # here either, so it just stayed dead - see restart: below.
+      SCHEMA_REGISTRY_KAFKASTORE_INIT_TIMEOUT_MS: "180000"
+      SCHEMA_REGISTRY_KAFKASTORE_TIMEOUT_MS: "60000"
+    restart: on-failure:5
+    networks:
+      - ${GLOBAL_NETWORK:-services}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/subjects || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 30s
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    ports:
+      # Host 8087, not 8080 - FURNITURE_STORE's backend and SISTEMA
+      # PARTIDOS's backend both bind 8080.
+      - "8087:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+    restart: on-failure:5
+    networks:
+      - ${GLOBAL_NETWORK:-services}

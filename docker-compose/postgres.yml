@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    # No host port published - the native Postgres already running on this
+    # machine's :5432 would collide, and nothing outside this compose
+    # network needs to reach it: every consumer (keycloak-authorization-server,
+    # elastic-query-service, analytics-service) is itself a container on
+    # ${GLOBAL_NETWORK}, reaching this by the "postgres" service name.
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      # No start_period meant retries could exhaust *during* the restart
+      # Postgres always does after running docker-entrypoint-initdb.d
+      # scripts (shut down, then start back up) - under host contention
+      # that cycle can take 30-40s, long enough to burn through the whole
+      # 10*5s retry budget and get marked unhealthy even though Postgres
+      # was never actually broken, just mid-restart.
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 45s
+    networks:
+      - ${GLOBAL_NETWORK:-services}
+
+volumes:
+  postgres-data:

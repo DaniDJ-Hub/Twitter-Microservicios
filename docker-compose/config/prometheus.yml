@@ -1,0 +1,19 @@
+scrape_configs:
+  - job_name: 'stream-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8187']  # Cambia el puerto según tu aplicación Spring Boot
+
+
+  - job_name: 'gateway-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:9092']  # Cambia el puerto según tu aplicación Spring Boot
+  - job_name: 'elastic-query-web-client'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8184']  # Cambia el puerto según tu aplicación Spring Boot
+  - job_name: 'config-server'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8888']  # Cambia el puerto según tu aplicación Spring Boot

@@ -1,0 +1,59 @@
+
+services:
+  zipkin-mysql:
+    image: mysql:8.0
+    container_name: zipkin-mysql
+    environment:
+      MYSQL_DATABASE: zipkin
+      MYSQL_USER: zipkin
+      MYSQL_PASSWORD: zipkin
+      MYSQL_ROOT_PASSWORD: zipkin
+      MYSQL_INITDB_SKIP_TZINFO: 1
+    ports:
+      # Host 3309, not 3307 - GYM_MOSTER's dev compose binds 3307.
+      - "3309:3306"
+    volumes:
+      - zipkin-mysql-data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pzipkin"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --skip-host-cache
+      --skip-name-resolve
+      --innodb-buffer-pool-size=256M
+      --max-connections=200
+    networks:
+      - ${GLOBAL_NETWORK:-services}
+
+  zipkin:
+    image: openzipkin/zipkin:2.22
+    container_name: zipkin
+    depends_on:
+      zipkin-mysql:
+        condition: service_healthy
+    environment:
+      # Use MySQL storage only
+      - STORAGE_TYPE=mysql
+      - MYSQL_HOST=zipkin-mysql
+      - MYSQL_USER=zipkin
+      - MYSQL_PASS=zipkin
+      - MYSQL_DB=zipkin
+      - MYSQL_USE_SSL=false
+      - JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      # Host 9415, not 9411 - GYM_MOSTER's dev compose and FURNITURE_STORE
+      # both bind 9411; FOOD-ORDERIN already moved to 9413 for the same
+      # reason. Every other service here reaches Zipkin via the internal
+      # "zipkin:9411" hostname, unaffected.
+      - "9415:9411"
+    restart: unless-stopped
+    networks:
+      - ${GLOBAL_NETWORK:-services}
+
+volumes:
+  zipkin-mysql-data:

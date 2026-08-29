@@ -1,0 +1,98 @@
+
+services:
+  elastic-1:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.4
+    container_name: elastic-1
+    environment:
+      - node.name=elastic-1
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=elastic-2,elastic-3
+      - cluster.initial_master_nodes=elastic-1,elastic-2,elastic-3
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - data01_7_17_4_new:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+    networks:
+      - ${GLOBAL_NETWORK:-services}
+    healthcheck:
+      # No healthcheck existed here before, so anything depends_on'ing
+      # elastic-1 could only wait for "container started", not "actually
+      # answering requests" - a 3-node cluster forming under load can take
+      # well past that point, which is exactly what broke
+      # elastic-query-service's Elasticsearch repository bean (5s connect
+      # timeout hit during cluster formation, not a real connectivity
+      # problem).
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  elastic-2:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.4
+    container_name: elastic-2
+    environment:
+      - node.name=elastic-2
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=elastic-1,elastic-3
+      - cluster.initial_master_nodes=elastic-1,elastic-2,elastic-3
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - data02_7_17_4_new:/usr/share/elasticsearch/data
+    networks:
+      - ${GLOBAL_NETWORK:-services}
+
+  elastic-3:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.4
+    container_name: elastic-3
+    environment:
+      - node.name=elastic-3
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=elastic-1,elastic-2
+      - cluster.initial_master_nodes=elastic-1,elastic-2,elastic-3
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - data03_7_17_4_new:/usr/share/elasticsearch/data
+    networks:
+      - ${GLOBAL_NETWORK:-services}
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.4
+    container_name: kibana
+    ports:
+      - 5601:5601
+    environment:
+      ELASTICSEARCH_HOSTS: '["http://elastic-1:9200"]'
+    networks:
+      - ${GLOBAL_NETWORK:-services}
+
+  # logstash was removed here: ./logstash/config and ./logstash/pipeline were
+  # always empty placeholder directories in this repo (no pipeline was ever
+  # authored), so the container crash-looped on every start
+  # (`open /usr/share/logstash/config/logstash.yml: no such file or
+  # directory`) and nothing else in this stack depends on it or points at
+  # it. Pre-existing gap, unrelated to the Zookeeper removal.
+
+volumes:
+  data01_7_17_4_new:
+    driver: local
+  data02_7_17_4_new:
+    driver: local
+  data03_7_17_4_new:
+    driver: local

@@ -1,0 +1,23 @@
+
+services:
+  redis-master:
+    image: redis:${REDIS_VERSION:-latest}
+    hostname: redis-master
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      # Host 6383, not 6379 - GYM_MOSTER's dev compose binds 6379. Container
+      # still listens on 6379 internally (gateway-service reaches it via the
+      # internal "redis-master"/"redis" hostname, unaffected).
+      - "6383:6379"
+    networks:
+      - ${GLOBAL_NETWORK:-services}
+
+  redis-slave:
+    image: redis:${REDIS_VERSION:-latest}
+    command: ["redis-server", "--slaveof", "redis-master", "6379"]
+    ports:
+      - "6380:6379"
+    depends_on:
+      - redis-master
+    networks:
+      - ${GLOBAL_NETWORK:-services}
