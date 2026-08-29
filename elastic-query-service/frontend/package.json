@@ -10,6 +10,6 @@
     "serve": "npx --yes serve -l 5501 ."
   },
   "devDependencies": {
-    "typescript": "^5.5.4"
+    "typescript": "^7.0.2"
   }
 }
