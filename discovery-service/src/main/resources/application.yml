@@ -1,0 +1,81 @@
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    appname: service-registry-cluster
+  server:
+    enable-self-preservation: false
+    expected-client-renewal-interval-seconds: 20
+    eviction-interval-timer-in-ms: 20000
+    peer-node-read-timeout-ms: 20000
+
+spring:
+  cloud:
+    loadbalancer:
+      ribbon:
+        enabled: false
+  profiles:
+    active: singleserver
+
+
+---
+server:
+  port: 8761
+spring:
+  config:
+    activate:
+      on-profile: peer1
+eureka:
+  instance:
+    hostname: discovery-service-1
+    metadataMap:
+      instanceId: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+  client:
+    serviceUrl:
+      defaultZone: http://discovery-service-1:8761/eureka/,http://discovery-service-2:8762/eureka/
+
+
+   # Zipkin configuration for Spring Boot 3.x
+  kafka:
+    bootstrap-servers: localhost:9092
+
+# Management endpoints for tracing (Spring Boot 3.x style)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,tracing
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411
+
+# Zipkin reporter configuration
+zipkin:
+  sender:
+    type: kafka
+
+
+log:
+  app-name: discovery-service-1
+
+---
+server:
+  port: 8762
+spring:
+  config:
+    activate:
+      on-profile: peer2
+eureka:
+  instance:
+    hostname: discovery-service-2
+    metadataMap:
+      instanceId: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+  client:
+    serviceUrl:
+      defaultZone: http://discovery-service-2:8762/eureka/,http://discovery-service-1:8761/eureka/
+log:
+  app-name: discovery-service-2
