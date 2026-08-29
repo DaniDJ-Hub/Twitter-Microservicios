@@ -1,0 +1,71 @@
+server:
+  port: 8888
+
+logging:
+  level:
+    ROOT: INFO
+    org.springframework.cloud.config: DEBUG
+
+spring:
+  application:
+    name: configserver
+  profiles:
+    active: native
+  cloud:
+    config:
+      server:
+        # Default backend: local file-based repo checked into this project (config-server-repository/).
+        # No external dependency, works offline. Switch to the 'git' profile below to serve config
+        # from a real git remote instead.
+        native:
+          search-locations: file:./config-server-repository,file:../config-server-repository
+      fail-fast: true
+  security:
+    user:
+      name: spring_cloud_user
+      password: '1234'
+  kafka:
+    bootstrap-servers: localhost:9092
+
+# Use environment variable for encryption key
+encrypt:
+  key: ${ENCRYPT_KEY:defaultEncryptionKey123}
+
+# Management endpoints for tracing (Spring Boot 3.x style)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,tracing
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411
+
+# Zipkin reporter configuration
+zipkin:
+  sender:
+    type: kafka
+
+log:
+  app-name: config-server
+
+---
+# Optional git-backed profile. Activate with SPRING_PROFILES_ACTIVE=git plus GIT_USERNAME/GIT_PASSWORD
+# pointing at a real, reachable config repo. Not active by default.
+spring:
+  config:
+    activate:
+      on-profile: git
+  cloud:
+    config:
+      server:
+        git:
+          uri: ${CONFIG_GIT_URI}
+          default-label: main
+          username: ${GIT_USERNAME}
+          password: ${GIT_PASSWORD}
+          clone-on-start: true
+
