@@ -1,0 +1,15 @@
+{
+  "name": "elastic-query-service-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Panel de integracion (HTML/CSS/TypeScript, sin frameworks) para los endpoints de elastic-query-service sin UI existente (getAllDocuments, getDocumentById v1/v2). La busqueda por texto ya tiene interfaz propia en elastic-query-web-client(-2)/reactive-elastic-query-web-client.",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "serve": "npx --yes serve -l 5501 ."
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

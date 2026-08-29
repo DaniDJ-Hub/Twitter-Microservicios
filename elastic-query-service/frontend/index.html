@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>elastic-query-service — Panel de documentos</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="page-header">
+    <h1>Panel de documentos — elastic-query-service</h1>
+    <p>Cubre los 3 endpoints de <code>ElasticDocumentController</code> que hoy no tienen ninguna interfaz: listar todos los documentos y obtener uno por id (v1/v2). La búsqueda por texto ya tiene su propia UI en <code>elastic-query-web-client</code> / <code>elastic-query-web-client-2</code> / <code>reactive-elastic-query-web-client</code>, así que no se duplica aquí.</p>
+  </header>
+
+  <section class="card">
+    <h2>Configuración</h2>
+    <div class="field-row">
+      <label for="baseUrl">URL elastic-query-service</label>
+      <input id="baseUrl" type="text" />
+    </div>
+    <label for="bearerToken">Token Keycloak (Bearer)</label>
+    <textarea id="bearerToken" rows="3" placeholder="Pega aquí el access_token del realm microservices-realm"></textarea>
+    <div class="field-row-actions">
+      <button id="saveConfigBtn" type="button">Aplicar</button>
+      <span id="configSavedMsg" class="saved-msg"></span>
+    </div>
+    <p class="hint">
+      El token <strong>no se guarda</strong> (ni localStorage ni sessionStorage): solo vive en memoria mientras esta pestaña siga abierta, porque es un JWT real de Keycloak. Pégalo de nuevo si recargas la página.
+      Estos 3 endpoints exigen <code>anyRequest().authenticated()</code> vía OAuth2 resource server (issuer <code>.../realms/microservices-realm</code>); además <code>getDocumentById</code> exige permiso concreto sobre ese id o el rol <code>APP_SUPER_USER_ROLE</code> (ver <code>QueryServicePermissionEvaluator</code>) — sin ese rol/permiso, esperá un 403.
+    </p>
+  </section>
+
+  <main class="grid">
+    <section class="card">
+      <h2>1. Listar todos los documentos</h2>
+      <p class="panel-desc"><code>GET /documents</code></p>
+      <form id="getAllDocumentsForm">
+        <button type="submit">Listar</button>
+      </form>
+      <div class="result" data-result="getAllDocuments"></div>
+    </section>
+
+    <section class="card">
+      <h2>2. Obtener documento por id</h2>
+      <p class="panel-desc"><code>GET /documents/{id}</code> — v1/v2 vía negociación de contenido (header <code>Accept</code>)</p>
+      <form id="getDocumentByIdForm">
+        <label>id
+          <input name="id" required />
+        </label>
+        <fieldset>
+          <legend>Versión de respuesta</legend>
+          <label class="radio-label">
+            <input type="radio" name="version" value="v1" checked /> v1 (<code>application/vnd.api.v1+json</code>)
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="version" value="v2" /> v2 (<code>application/vnd.api.v2+json</code>)
+          </label>
+        </fieldset>
+        <button type="submit">Consultar</button>
+      </form>
+      <div class="result" data-result="getDocumentById"></div>
+    </section>
+  </main>
+
+  <section class="card">
+    <h2>Última petición / respuesta</h2>
+    <div class="inspector-grid">
+      <div>
+        <h3>Request</h3>
+        <pre id="lastRequest">—</pre>
+      </div>
+      <div>
+        <h3>Response</h3>
+        <pre id="lastResponse">—</pre>
+      </div>
+    </div>
+  </section>
+
+  <script type="module" src="dist/app.js"></script>
+</body>
+</html>
