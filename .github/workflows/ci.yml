@@ -109,7 +109,7 @@ jobs:
         id: image
         # ghcr.io requires an all-lowercase repository name, but
         # github.repository_owner preserves the account's actual case
-        # (Solano204) - used directly, every tag/push below would fail with
+        # (DaniDJ-Hub) - used directly, every tag/push below would fail with
         # "repository name must be lowercase".
         run: |
           OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
